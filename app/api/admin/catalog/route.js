@@ -8,11 +8,11 @@ const CATALOG_PATH = "data/catalog.json";
 
 async function readCatalog() {
   try {
-    const { blobs } = await list({
+    const result = await list({
       prefix: CATALOG_PATH,
     });
 
-    const blob = blobs?.find(
+    const blob = result.blobs?.find(
       (item) => item.pathname === CATALOG_PATH
     );
 
@@ -25,10 +25,27 @@ async function readCatalog() {
     });
 
     if (!response.ok) {
+      console.error(
+        "Catalog fetch failed:",
+        response.status,
+        response.statusText
+      );
+
       return seedCatalog;
     }
 
-    return await response.json();
+    const catalog = await response.json();
+
+    if (
+      !catalog ||
+      !Array.isArray(catalog.collections) ||
+      !Array.isArray(catalog.products)
+    ) {
+      console.error("Invalid catalog stored in Blob.");
+      return seedCatalog;
+    }
+
+    return catalog;
   } catch (error) {
     console.error("Catalog read failed:", error);
     return seedCatalog;
@@ -36,7 +53,7 @@ async function readCatalog() {
 }
 
 async function writeCatalog(catalog) {
-  return await put(
+  const blob = await put(
     CATALOG_PATH,
     JSON.stringify(catalog, null, 2),
     {
@@ -46,6 +63,8 @@ async function writeCatalog(catalog) {
       cacheControlMaxAge: 0,
     }
   );
+
+  return blob;
 }
 
 export async function GET(request) {
@@ -56,22 +75,13 @@ export async function GET(request) {
     );
   }
 
-  try {
-    const catalog = await readCatalog();
+  const catalog = await readCatalog();
 
-    return Response.json(catalog, {
-      headers: {
-        "Cache-Control": "no-store",
-      },
-    });
-  } catch (error) {
-    console.error("Catalog GET failed:", error);
-
-    return Response.json(
-      { error: "Could not load catalog." },
-      { status: 500 }
-    );
-  }
+  return Response.json(catalog, {
+    headers: {
+      "Cache-Control": "no-store, no-cache, must-revalidate",
+    },
+  });
 }
 
 export async function POST(request) {
@@ -91,24 +101,33 @@ export async function POST(request) {
       !Array.isArray(catalog.products)
     ) {
       return Response.json(
-        { error: "Invalid catalog." },
+        { error: "Invalid catalog data." },
         { status: 400 }
       );
     }
 
     await writeCatalog(catalog);
 
-    return Response.json({
-      ok: true,
-      catalog,
-    });
+    return Response.json(
+      {
+        ok: true,
+        catalog,
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store",
+        },
+      }
+    );
   } catch (error) {
     console.error("Catalog save failed:", error);
 
     return Response.json(
       {
         error:
-          error?.message || "Could not save catalog.",
+          error instanceof Error
+            ? error.message
+            : "Could not save catalog.",
       },
       { status: 500 }
     );
@@ -124,41 +143,28 @@ export async function DELETE(request) {
   }
 
   try {
-    const { type, id } = await request.json();
+    const body = await request.json();
 
-    if (
-      !["collection", "product"].includes(type) ||
-      !id
-    ) {
+    const type = body?.type;
+    const id = body?.id;
+
+    if (!type || !id) {
       return Response.json(
-        { error: "Type and id are required." },
+        { error: "Missing item type or id." },
+        { status: 400 }
+      );
+    }
+
+    if (type !== "collection" && type !== "product") {
+      return Response.json(
+        { error: "Invalid item type." },
         { status: 400 }
       );
     }
 
     const catalog = await readCatalog();
 
-    let next = catalog;
-
-    if (type === "product") {
-      const exists = catalog.products.some(
-        (product) => product.id === id
-      );
-
-      if (!exists) {
-        return Response.json(
-          { error: "Product not found." },
-          { status: 404 }
-        );
-      }
-
-      next = {
-        ...catalog,
-        products: catalog.products.filter(
-          (product) => product.id !== id
-        ),
-      };
-    } else {
+    if (type === "collection") {
       const collection = catalog.collections.find(
         (item) => item.id === id
       );
@@ -170,22 +176,51 @@ export async function DELETE(request) {
         );
       }
 
-      next = {
+      const updatedCatalog = {
+        ...catalog,
+
         collections: catalog.collections.filter(
           (item) => item.id !== id
         ),
+
         products: catalog.products.filter(
           (product) =>
             product.collection !== collection.slug
         ),
       };
+
+      await writeCatalog(updatedCatalog);
+
+      return Response.json({
+        ok: true,
+        catalog: updatedCatalog,
+      });
     }
 
-    await writeCatalog(next);
+    const productExists = catalog.products.some(
+      (item) => item.id === id
+    );
+
+    if (!productExists) {
+      return Response.json(
+        { error: "Product not found." },
+        { status: 404 }
+      );
+    }
+
+    const updatedCatalog = {
+      ...catalog,
+
+      products: catalog.products.filter(
+        (item) => item.id !== id
+      ),
+    };
+
+    await writeCatalog(updatedCatalog);
 
     return Response.json({
       ok: true,
-      catalog: next,
+      catalog: updatedCatalog,
     });
   } catch (error) {
     console.error("Catalog delete failed:", error);
@@ -193,7 +228,9 @@ export async function DELETE(request) {
     return Response.json(
       {
         error:
-          error?.message || "Could not delete.",
+          error instanceof Error
+            ? error.message
+            : "Could not delete item.",
       },
       { status: 500 }
     );
