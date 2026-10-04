@@ -12,11 +12,12 @@ export async function POST(request) {
   }
 
   try {
-    const form = await request.formData();
-    const file = form.get("file");
+    const formData = await request.formData();
+    const file = formData.get("file");
 
     if (
       !file ||
+      typeof file !== "object" ||
       typeof file.arrayBuffer !== "function"
     ) {
       return Response.json(
@@ -25,14 +26,18 @@ export async function POST(request) {
       );
     }
 
-    const safe = String(file.name || "image")
-      .replace(/[^a-zA-Z0-9._-]/g, "-");
+    const fileName = file.name || "image";
+
+    const safeFileName = fileName.replace(
+      /[^a-zA-Z0-9._-]/g,
+      "-"
+    );
 
     const blob = await put(
-      `uploads/${Date.now()}-${safe}`,
+      `uploads/${Date.now()}-${safeFileName}`,
       file,
       {
-        access: "public",
+        access: "private",
         addRandomSuffix: false,
         contentType: file.type || "application/octet-stream",
       }
@@ -48,8 +53,9 @@ export async function POST(request) {
     return Response.json(
       {
         error:
-          error?.message ||
-          "Image upload failed.",
+          error instanceof Error
+            ? error.message
+            : "Image upload failed.",
       },
       { status: 500 }
     );

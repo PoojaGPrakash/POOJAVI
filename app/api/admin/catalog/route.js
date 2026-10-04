@@ -13,7 +13,7 @@ async function readCatalog() {
     });
 
     const blob = blobs?.find(
-      (b) => b.pathname === CATALOG_PATH
+      (item) => item.pathname === CATALOG_PATH
     );
 
     if (!blob) {
@@ -36,21 +36,16 @@ async function readCatalog() {
 }
 
 async function writeCatalog(catalog) {
-  try {
-    return await put(
-      CATALOG_PATH,
-      JSON.stringify(catalog, null, 2),
-      {
-        access: "public",
-        addRandomSuffix: false,
-        contentType: "application/json",
-        cacheControlMaxAge: 0,
-      }
-    );
-  } catch (error) {
-    console.error("Catalog write failed:", error);
-    throw error;
-  }
+  return await put(
+    CATALOG_PATH,
+    JSON.stringify(catalog, null, 2),
+    {
+      access: "private",
+      addRandomSuffix: false,
+      contentType: "application/json",
+      cacheControlMaxAge: 0,
+    }
+  );
 }
 
 export async function GET(request) {
@@ -113,8 +108,7 @@ export async function POST(request) {
     return Response.json(
       {
         error:
-          error?.message ||
-          "Could not save catalog.",
+          error?.message || "Could not save catalog.",
       },
       { status: 500 }
     );
@@ -148,7 +142,7 @@ export async function DELETE(request) {
 
     if (type === "product") {
       const exists = catalog.products.some(
-        (p) => p.id === id
+        (product) => product.id === id
       );
 
       if (!exists) {
@@ -161,12 +155,12 @@ export async function DELETE(request) {
       next = {
         ...catalog,
         products: catalog.products.filter(
-          (p) => p.id !== id
+          (product) => product.id !== id
         ),
       };
     } else {
       const collection = catalog.collections.find(
-        (c) => c.id === id
+        (item) => item.id === id
       );
 
       if (!collection) {
@@ -178,10 +172,11 @@ export async function DELETE(request) {
 
       next = {
         collections: catalog.collections.filter(
-          (c) => c.id !== id
+          (item) => item.id !== id
         ),
         products: catalog.products.filter(
-          (p) => p.collection !== collection.slug
+          (product) =>
+            product.collection !== collection.slug
         ),
       };
     }
@@ -198,8 +193,7 @@ export async function DELETE(request) {
     return Response.json(
       {
         error:
-          error?.message ||
-          "Could not delete.",
+          error?.message || "Could not delete.",
       },
       { status: 500 }
     );
