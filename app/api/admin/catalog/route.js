@@ -1,4 +1,4 @@
-import { get, list, put } from "@vercel/blob";
+import { list, put } from "@vercel/blob";
 import { seedCatalog } from "../../../../lib/catalog";
 import { isAdmin } from "../../../../lib/admin";
 
@@ -12,23 +12,23 @@ async function readCatalog() {
       prefix: CATALOG_PATH,
     });
 
-    const blob = blobs?.find((b) => b.pathname === CATALOG_PATH);
+    const blob = blobs?.find(
+      (b) => b.pathname === CATALOG_PATH
+    );
 
     if (!blob) {
       return seedCatalog;
     }
 
-    const { stream } = await get(CATALOG_PATH, {
-      access: "private",
+    const response = await fetch(blob.url, {
+      cache: "no-store",
     });
 
-    const text = await new Response(stream).text();
-
-    if (!text) {
+    if (!response.ok) {
       return seedCatalog;
     }
 
-    return JSON.parse(text);
+    return await response.json();
   } catch (error) {
     console.error("Catalog read failed:", error);
     return seedCatalog;
@@ -37,18 +37,16 @@ async function readCatalog() {
 
 async function writeCatalog(catalog) {
   try {
-    const blob = await put(
+    return await put(
       CATALOG_PATH,
       JSON.stringify(catalog, null, 2),
       {
-        access: "private",
+        access: "public",
         addRandomSuffix: false,
         contentType: "application/json",
         cacheControlMaxAge: 0,
       }
     );
-
-    return blob;
   } catch (error) {
     console.error("Catalog write failed:", error);
     throw error;
