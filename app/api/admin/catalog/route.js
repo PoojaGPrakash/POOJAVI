@@ -22,6 +22,9 @@ async function readCatalog() {
 
     const response = await fetch(blob.url, {
       cache: "no-store",
+      headers: {
+        Authorization: `Bearer ${process.env.BLOB_READ_WRITE_TOKEN}`,
+      },
     });
 
     if (!response.ok) {
