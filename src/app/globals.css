@@ -1,0 +1,161 @@
+@import "tailwindcss";
+
+/* ───────────────────────── Design tokens ───────────────────────── */
+@theme {
+  --color-ivory: #f8f5ef;
+  --color-champagne: #d6c2a1;
+  --color-champagne-dark: #b89d72;
+  --color-burgundy: #551f32;
+  --color-burgundy-dark: #3f1625;
+  --color-beige: #e9e0d4;
+  --color-charcoal: #282522;
+  --color-muted: #6b625a;
+  --color-line: #ddd2c3;
+
+  --font-serif: var(--font-cormorant), "Cormorant Garamond", Georgia, "Times New Roman", serif;
+  --font-sans: var(--font-jost), "Jost", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --tracking-luxe: 0.32em;
+  --tracking-wide-xl: 0.2em;
+
+  --ease-luxe: cubic-bezier(0.22, 0.61, 0.36, 1);
+
+  --animate-fade-in: fade-in 0.9s var(--ease-luxe) both;
+
+  @keyframes fade-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: none; }
+  }
+}
+
+/* ───────────────────────── Base ───────────────────────── */
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-ivory text-charcoal font-sans antialiased;
+    font-feature-settings: "kern", "liga";
+    overflow-x: hidden;
+  }
+  h1, h2, h3, h4 {
+    @apply font-serif font-normal text-charcoal;
+    letter-spacing: 0.005em;
+  }
+  ::selection {
+    background: var(--color-burgundy);
+    color: var(--color-ivory);
+  }
+  :focus-visible {
+    outline: 1px solid var(--color-burgundy);
+    outline-offset: 3px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* ───────────────────────── Custom utilities ─────────────────────────
+   Declared with @utility so they compose with @apply and support variants. */
+@utility container-luxe {
+  @apply mx-auto w-full max-w-[1440px] px-5 sm:px-8 lg:px-12;
+}
+@utility eyebrow {
+  @apply font-sans text-[0.68rem] font-medium uppercase text-muted;
+  letter-spacing: var(--tracking-luxe);
+}
+@utility display-1 {
+  @apply font-serif text-[2.6rem] leading-[1.05] sm:text-6xl lg:text-7xl;
+}
+@utility display-2 {
+  @apply font-serif text-[2rem] leading-[1.1] sm:text-5xl;
+}
+@utility heading-3 {
+  @apply font-serif text-2xl leading-snug sm:text-[1.75rem];
+}
+@utility body-lg {
+  @apply text-[0.98rem] leading-[1.85] text-charcoal/80 sm:text-[1.05rem];
+}
+@utility rule {
+  @apply h-px w-12 bg-champagne;
+}
+
+@utility btn {
+  @apply inline-flex min-h-11 items-center justify-center gap-2 px-7 py-3 text-[0.7rem] font-medium uppercase transition-colors duration-300 disabled:cursor-not-allowed disabled:opacity-60;
+  letter-spacing: var(--tracking-wide-xl);
+}
+@utility btn-primary {
+  @apply btn bg-burgundy text-ivory hover:bg-burgundy-dark;
+}
+@utility btn-outline {
+  @apply btn border border-charcoal/70 text-charcoal hover:bg-charcoal hover:text-ivory;
+}
+@utility btn-light {
+  @apply btn border border-ivory/80 text-ivory hover:bg-ivory hover:text-charcoal;
+}
+@utility btn-ghost {
+  @apply btn px-3 text-charcoal hover:text-burgundy;
+}
+@utility link-underline {
+  @apply relative inline-block pb-1 text-[0.7rem] font-medium uppercase;
+  letter-spacing: var(--tracking-wide-xl);
+  &::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 1px;
+    width: 100%;
+    background: currentColor;
+    transform-origin: left;
+    transition: transform 0.5s var(--ease-luxe);
+  }
+  &:hover::after {
+    transform: scaleX(0.4);
+  }
+}
+
+/* Form controls (storefront + admin) */
+@utility field-label {
+  @apply mb-1.5 block text-[0.7rem] font-medium uppercase text-charcoal/80;
+  letter-spacing: 0.14em;
+}
+@utility field-input {
+  @apply block min-h-11 w-full rounded-none border border-line bg-white px-3.5 py-2.5 text-[0.95rem] text-charcoal transition-colors placeholder:text-charcoal/40 focus:border-burgundy focus:outline-none disabled:bg-beige/40;
+}
+@utility field-error {
+  @apply mt-1.5 text-xs text-[#9b2c2c];
+}
+@utility field-hint {
+  @apply mt-1.5 text-xs text-muted;
+}
+
+@utility img-zoom {
+  transition: transform 1.2s var(--ease-luxe);
+  :where(.group):hover & {
+    transform: scale(1.04);
+  }
+}
+
+/* Scroll-driven reveal (see components/ui/Reveal.tsx) */
+@keyframes reveal-lift {
+  from { transform: translateY(28px); }
+  to { transform: none; }
+}
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .reveal {
+      animation: reveal-lift linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 45%;
+    }
+  }
+}
+@media print {
+  .reveal { animation: none !important; }
+}
