@@ -2,12 +2,24 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { useEffect, useId, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
+import { createPortal } from "react-dom";
 import { Menu, Search, X } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
 import { WhatsAppButton } from "@/components/whatsapp/WhatsAppButton";
 import { brand, mainNav } from "@/lib/brand";
 import { cn } from "@/lib/utils";
+
+const subscribeNoop = () => () => {};
+
+/** True only on the client, after hydration (safe for portals). */
+function useIsClient(): boolean {
+  return useSyncExternalStore(
+    subscribeNoop,
+    () => true,
+    () => false,
+  );
+}
 
 function isActive(pathname: string, href: string): boolean {
   if (href === "/") return pathname === "/";
@@ -23,6 +35,7 @@ export function Header() {
   const searchInput = useRef<HTMLInputElement>(null);
   const menuId = useId();
   const searchId = useId();
+  const isClient = useIsClient();
 
   // Close overlays on navigation (state derived during render, no effect needed).
   if (pathname !== lastPath) {
@@ -57,182 +70,197 @@ export function Header() {
     router.push(`/search?q=${encodeURIComponent(term)}`);
   }
 
-  return (
-    <header className="sticky top-0 z-30 border-b border-line/60 bg-ivory/95 backdrop-blur supports-[backdrop-filter]:bg-ivory/85">
-      <div className="container-luxe">
-        <div className="grid h-[72px] grid-cols-[1fr_auto_1fr] items-center lg:h-[92px]">
-          {/* Left */}
-          <div className="flex items-center">
-            <button
-              type="button"
-              className="-ml-2 inline-flex h-11 w-11 items-center justify-center lg:hidden"
-              aria-label="Open menu"
-              aria-expanded={menuOpen}
-              aria-controls={menuId}
-              onClick={() => setMenuOpen(true)}
-            >
-              <Menu className="h-[22px] w-[22px]" strokeWidth={1.25} />
-            </button>
-            <p className="hidden font-serif text-[0.95rem] tracking-[0.18em] text-muted italic lg:block">{brand.tagline}</p>
-          </div>
-
-          {/* Centre */}
-          <div className="flex justify-center">
-            <Logo size="md" />
-          </div>
-
-          {/* Right */}
-          <div className="flex items-center justify-end gap-0.5 sm:gap-1">
-            <button
-              type="button"
-              className="inline-flex h-11 w-11 items-center justify-center transition-colors hover:text-burgundy"
-              aria-label="Search"
-              aria-expanded={searchOpen}
-              aria-controls={searchId}
-              onClick={() => setSearchOpen((v) => !v)}
-            >
-              <Search className="h-[20px] w-[20px]" strokeWidth={1.25} />
-            </button>
-            <WhatsAppButton variant="icon" label="Chat on WhatsApp" className="-mr-2" />
-          </div>
-        </div>
-
-        {/* Desktop navigation */}
-        <nav aria-label="Main" className="hidden border-t border-line/50 lg:block">
-          <ul className="flex h-12 items-center justify-center gap-10 xl:gap-14">
-            {mainNav.map((item) => {
-              const active = isActive(pathname, item.href);
-              return (
-                <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    aria-current={active ? "page" : undefined}
-                    className={cn(
-                      "relative py-2 text-[0.68rem] font-medium tracking-[0.24em] uppercase transition-colors hover:text-burgundy",
-                      active ? "text-burgundy" : "text-charcoal/85",
-                    )}
-                  >
-                    {item.label}
-                    <span
-                      aria-hidden="true"
-                      className={cn(
-                        "absolute -bottom-0.5 left-1/2 h-px w-4 -translate-x-1/2 bg-burgundy transition-opacity",
-                        active ? "opacity-100" : "opacity-0",
-                      )}
-                    />
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </nav>
-      </div>
-
-      {/* Search panel */}
+  /*
+   * The drawer is portalled to <body>: the header uses `backdrop-filter`,
+   * which makes it the containing block for `position: fixed` children, so a
+   * drawer rendered inside it was clipped to the 72px header bar on mobile.
+   */
+  const drawer = (
+    <div
+      id={menuId}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Menu"
+      className={cn("fixed inset-0 z-[70] lg:hidden", menuOpen ? "visible" : "invisible")}
+      aria-hidden={!menuOpen}
+    >
       <div
-        id={searchId}
+        className={cn("absolute inset-0 bg-charcoal/40 transition-opacity duration-300", menuOpen ? "opacity-100" : "opacity-0")}
+        onClick={() => setMenuOpen(false)}
+        aria-hidden="true"
+      />
+      <div
         className={cn(
-          "absolute inset-x-0 top-full border-b border-line/60 bg-ivory transition-[opacity,visibility] duration-300",
-          searchOpen ? "visible opacity-100" : "invisible opacity-0",
+          "absolute inset-y-0 left-0 flex h-[100dvh] w-[86%] max-w-sm flex-col overscroll-contain bg-ivory shadow-xl transition-transform duration-500 ease-[cubic-bezier(0.22,0.61,0.36,1)]",
+          menuOpen ? "translate-x-0" : "-translate-x-full",
         )}
-        aria-hidden={!searchOpen}
       >
-        <form role="search" onSubmit={onSearch} className="container-luxe flex items-center gap-4 py-6 sm:py-8">
-          <label htmlFor="site-search" className="sr-only">
-            Search fabrics and sarees
-          </label>
-          <Search className="h-5 w-5 shrink-0 text-muted" strokeWidth={1.25} aria-hidden="true" />
-          <input
-            ref={searchInput}
-            id="site-search"
-            name="q"
-            type="search"
-            minLength={2}
-            maxLength={80}
-            required
-            tabIndex={searchOpen ? 0 : -1}
-            placeholder="Search by name, weave, colour or reference"
-            className="w-full border-0 bg-transparent font-serif text-xl placeholder:text-charcoal/35 focus:outline-none sm:text-3xl"
-          />
-          <button type="submit" className="btn-primary hidden sm:inline-flex" tabIndex={searchOpen ? 0 : -1}>
-            Search
-          </button>
+        <div className="flex h-[72px] items-center justify-between border-b border-line/60 px-5">
+          <Logo size="sm" />
           <button
             type="button"
-            onClick={() => setSearchOpen(false)}
-            className="inline-flex h-11 w-11 shrink-0 items-center justify-center"
-            aria-label="Close search"
-            tabIndex={searchOpen ? 0 : -1}
+            onClick={() => setMenuOpen(false)}
+            className="-mr-2 inline-flex h-11 w-11 items-center justify-center"
+            aria-label="Close menu"
+            tabIndex={menuOpen ? 0 : -1}
           >
             <X className="h-5 w-5" strokeWidth={1.25} />
           </button>
-        </form>
+        </div>
+        <nav aria-label="Mobile" className="flex-1 overflow-y-auto px-5 py-6">
+          <ul className="space-y-1">
+            {mainNav.map((item) => (
+              <li key={item.href}>
+                <Link
+                  href={item.href}
+                  onClick={() => setMenuOpen(false)}
+                  tabIndex={menuOpen ? 0 : -1}
+                  aria-current={isActive(pathname, item.href) ? "page" : undefined}
+                  className={cn(
+                    "flex min-h-12 items-center border-b border-line/50 font-serif text-[1.6rem]",
+                    isActive(pathname, item.href) ? "text-burgundy" : "text-charcoal",
+                  )}
+                >
+                  {item.label}
+                </Link>
+              </li>
+            ))}
+            <li>
+              <Link
+                href="/new-arrivals"
+                onClick={() => setMenuOpen(false)}
+                tabIndex={menuOpen ? 0 : -1}
+                className="flex min-h-12 items-center border-b border-line/50 font-serif text-[1.6rem]"
+              >
+                New Arrivals
+              </Link>
+            </li>
+          </ul>
+        </nav>
+        <div className="border-t border-line/60 p-5">
+          <WhatsAppButton variant="primary" className="w-full" />
+        </div>
       </div>
-      {searchOpen && (
-        <div className="fixed inset-x-0 top-full bottom-0 -z-10 h-screen bg-charcoal/25" aria-hidden="true" onClick={() => setSearchOpen(false)} />
-      )}
+    </div>
+  );
 
-      {/* Mobile drawer */}
-      <div
-        id={menuId}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Menu"
-        className={cn("fixed inset-0 z-50 lg:hidden", menuOpen ? "visible" : "invisible")}
-        aria-hidden={!menuOpen}
-      >
+  return (
+    <>
+      <header className="sticky top-0 z-30 border-b border-line/60 bg-ivory/95 backdrop-blur supports-[backdrop-filter]:bg-ivory/85">
+        <div className="container-luxe">
+          <div className="grid h-[72px] grid-cols-[1fr_auto_1fr] items-center lg:h-[92px]">
+            {/* Left */}
+            <div className="flex items-center">
+              <button
+                type="button"
+                className="-ml-2 inline-flex h-11 w-11 items-center justify-center lg:hidden"
+                aria-label="Open menu"
+                aria-expanded={menuOpen}
+                aria-controls={menuId}
+                onClick={() => setMenuOpen(true)}
+              >
+                <Menu className="h-[22px] w-[22px]" strokeWidth={1.25} />
+              </button>
+              <p className="hidden font-serif text-[0.95rem] tracking-[0.18em] text-muted italic lg:block">{brand.tagline}</p>
+            </div>
+
+            {/* Centre */}
+            <div className="flex justify-center">
+              <Logo size="md" />
+            </div>
+
+            {/* Right */}
+            <div className="flex items-center justify-end gap-0.5 sm:gap-1">
+              <button
+                type="button"
+                className="inline-flex h-11 w-11 items-center justify-center transition-colors hover:text-burgundy"
+                aria-label="Search"
+                aria-expanded={searchOpen}
+                aria-controls={searchId}
+                onClick={() => setSearchOpen((v) => !v)}
+              >
+                <Search className="h-[20px] w-[20px]" strokeWidth={1.25} />
+              </button>
+              <WhatsAppButton variant="icon" label="Chat on WhatsApp" className="-mr-2" />
+            </div>
+          </div>
+
+          {/* Desktop navigation */}
+          <nav aria-label="Main" className="hidden border-t border-line/50 lg:block">
+            <ul className="flex h-12 items-center justify-center gap-10 xl:gap-14">
+              {mainNav.map((item) => {
+                const active = isActive(pathname, item.href);
+                return (
+                  <li key={item.href}>
+                    <Link
+                      href={item.href}
+                      aria-current={active ? "page" : undefined}
+                      className={cn(
+                        "relative py-2 text-[0.68rem] font-medium tracking-[0.24em] uppercase transition-colors hover:text-burgundy",
+                        active ? "text-burgundy" : "text-charcoal/85",
+                      )}
+                    >
+                      {item.label}
+                      <span
+                        aria-hidden="true"
+                        className={cn(
+                          "absolute -bottom-0.5 left-1/2 h-px w-4 -translate-x-1/2 bg-burgundy transition-opacity",
+                          active ? "opacity-100" : "opacity-0",
+                        )}
+                      />
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </nav>
+        </div>
+
+        {/* Search panel */}
         <div
-          className={cn("absolute inset-0 bg-charcoal/40 transition-opacity duration-300", menuOpen ? "opacity-100" : "opacity-0")}
-          onClick={() => setMenuOpen(false)}
-          aria-hidden="true"
-        />
-        <div
+          id={searchId}
           className={cn(
-            "absolute inset-y-0 left-0 flex w-[86%] max-w-sm flex-col bg-ivory shadow-xl transition-transform duration-500 ease-[cubic-bezier(0.22,0.61,0.36,1)]",
-            menuOpen ? "translate-x-0" : "-translate-x-full",
+            "absolute inset-x-0 top-full border-b border-line/60 bg-ivory transition-[opacity,visibility] duration-300",
+            searchOpen ? "visible opacity-100" : "invisible opacity-0",
           )}
+          aria-hidden={!searchOpen}
         >
-          <div className="flex h-[72px] items-center justify-between border-b border-line/60 px-5">
-            <Logo size="sm" />
+          <form role="search" onSubmit={onSearch} className="container-luxe flex items-center gap-4 py-6 sm:py-8">
+            <label htmlFor="site-search" className="sr-only">
+              Search fabrics and sarees
+            </label>
+            <Search className="h-5 w-5 shrink-0 text-muted" strokeWidth={1.25} aria-hidden="true" />
+            <input
+              ref={searchInput}
+              id="site-search"
+              name="q"
+              type="search"
+              minLength={2}
+              maxLength={80}
+              required
+              tabIndex={searchOpen ? 0 : -1}
+              placeholder="Search by name, weave, colour or reference"
+              className="w-full border-0 bg-transparent font-serif text-xl placeholder:text-charcoal/35 focus:outline-none sm:text-3xl"
+            />
+            <button type="submit" className="btn-primary hidden sm:inline-flex" tabIndex={searchOpen ? 0 : -1}>
+              Search
+            </button>
             <button
               type="button"
-              onClick={() => setMenuOpen(false)}
-              className="-mr-2 inline-flex h-11 w-11 items-center justify-center"
-              aria-label="Close menu"
-              tabIndex={menuOpen ? 0 : -1}
+              onClick={() => setSearchOpen(false)}
+              className="inline-flex h-11 w-11 shrink-0 items-center justify-center"
+              aria-label="Close search"
+              tabIndex={searchOpen ? 0 : -1}
             >
               <X className="h-5 w-5" strokeWidth={1.25} />
             </button>
-          </div>
-          <nav aria-label="Mobile" className="flex-1 overflow-y-auto px-5 py-6">
-            <ul className="space-y-1">
-              {mainNav.map((item) => (
-                <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    tabIndex={menuOpen ? 0 : -1}
-                    aria-current={isActive(pathname, item.href) ? "page" : undefined}
-                    className={cn(
-                      "flex min-h-12 items-center border-b border-line/50 font-serif text-[1.6rem]",
-                      isActive(pathname, item.href) ? "text-burgundy" : "text-charcoal",
-                    )}
-                  >
-                    {item.label}
-                  </Link>
-                </li>
-              ))}
-              <li>
-                <Link href="/new-arrivals" tabIndex={menuOpen ? 0 : -1} className="flex min-h-12 items-center border-b border-line/50 font-serif text-[1.6rem]">
-                  New Arrivals
-                </Link>
-              </li>
-            </ul>
-          </nav>
-          <div className="border-t border-line/60 p-5">
-            <WhatsAppButton variant="primary" className="w-full" />
-          </div>
+          </form>
         </div>
-      </div>
-    </header>
+        {searchOpen && (
+          <div className="fixed inset-x-0 top-full bottom-0 -z-10 h-screen bg-charcoal/25" aria-hidden="true" onClick={() => setSearchOpen(false)} />
+        )}
+      </header>
+      {isClient && createPortal(drawer, document.body)}
+    </>
   );
 }

@@ -1,4 +1,5 @@
 import "server-only";
+import { brand } from "@/lib/brand";
 import { cache } from "react";
 import { getPublicSupabase } from "@/lib/supabase/public";
 import { env } from "@/lib/env";
@@ -75,7 +76,7 @@ export const getSiteSettings = cache(async (): Promise<SiteSettings> => {
   return {
     ...settings,
     // Environment fallbacks apply only until values are saved in the admin.
-    whatsapp_number: settings.whatsapp_number || env.fallbackWhatsAppNumber || null,
+    whatsapp_number: settings.whatsapp_number || env.fallbackWhatsAppNumber || brand.whatsappNumber,
     contact_email: settings.contact_email || env.fallbackContactEmail || null,
   };
 });

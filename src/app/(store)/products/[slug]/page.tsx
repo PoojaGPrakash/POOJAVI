@@ -6,9 +6,9 @@ import { Prose } from "@/components/ui/Prose";
 import { ProductGallery } from "@/components/product/ProductGallery";
 import { ProductGrid } from "@/components/product/ProductGrid";
 import { WhatsAppButton } from "@/components/whatsapp/WhatsAppButton";
-import { getProductBySlug, getProductCollections, getRelatedProducts, getSiteSettings } from "@/lib/data/public";
+import { getProductBySlug, getProductCollections, getRelatedProducts } from "@/lib/data/public";
 import { publicImageUrl } from "@/lib/storage";
-import { productEnquiryMessage, normaliseWhatsAppNumber } from "@/lib/whatsapp";
+import { productCode, productEnquiryMessage } from "@/lib/whatsapp";
 import { env } from "@/lib/env";
 import { brand } from "@/lib/brand";
 
@@ -39,17 +39,20 @@ export default async function ProductPage({ params }: Props) {
   const { slug } = await params;
   const product = await getProductBySlug(slug);
   if (!product) notFound();
-  const [related, settings, collections] = await Promise.all([getRelatedProducts(product), getSiteSettings(), getProductCollections(product.id)]);
+  const [related, collections] = await Promise.all([getRelatedProducts(product), getProductCollections(product.id)]);
 
   const category = product.category;
   const parent = category?.department === "sarees" ? { label: "Sarees", href: "/sarees" } : { label: "Fabrics", href: "/fabrics" };
-  const hasWhatsApp = Boolean(normaliseWhatsAppNumber(settings.whatsapp_number));
-  const enquiry = productEnquiryMessage(product.name);
+  const code = productCode(product);
+  const enquiry = productEnquiryMessage(
+    { name: product.name, slug: product.slug, sku: code, category: category?.name, colours: product.colours },
+    env.siteUrl,
+  );
 
   const details: { label: string; value: string | null }[] = [
     { label: "Category", value: category?.name ?? null },
     { label: "Collection", value: collections.length ? collections.map((c) => c.name).join(", ") : null },
-    { label: "Reference", value: product.sku },
+    { label: "Product code", value: code },
     { label: "Weaving technique", value: product.weaving_technique },
   ];
 
@@ -105,23 +108,11 @@ export default async function ProductPage({ params }: Props) {
           )}
 
           <div className="mt-10 flex flex-col gap-3 border-y border-line py-8">
-            {hasWhatsApp ? (
-              <>
-                <WhatsAppButton message={enquiry} className="w-full" label="Enquire on WhatsApp" />
-                <p className="text-center text-xs leading-relaxed text-muted">
-                  Pricing, availability and additional photographs are shared personally on enquiry.
-                </p>
-              </>
-            ) : (
-              <Link href={`/contact?product=${encodeURIComponent(product.slug)}`} className="btn-primary w-full">
-                Enquire about this piece
-              </Link>
-            )}
-            {hasWhatsApp && (
-              <Link href={`/contact?product=${encodeURIComponent(product.slug)}`} className="btn-ghost mx-auto">
-                Or send an enquiry by email
-              </Link>
-            )}
+            <WhatsAppButton message={enquiry} className="w-full" label="Enquire on WhatsApp" />
+            <p className="text-center text-xs leading-relaxed text-muted">
+              Product code <span className="font-medium text-charcoal">{code}</span> is sent automatically. Pricing, availability and
+              additional photographs are shared personally on WhatsApp.
+            </p>
           </div>
 
           <dl className="mt-8 divide-y divide-line/70">

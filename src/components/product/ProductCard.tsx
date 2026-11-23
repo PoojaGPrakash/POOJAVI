@@ -2,11 +2,18 @@ import Link from "next/link";
 import { StoreImage } from "@/components/ui/StoreImage";
 import type { ProductWithRelations } from "@/lib/types";
 import { truncate } from "@/lib/utils";
+import { env } from "@/lib/env";
+import { productEnquiryMessage } from "@/lib/whatsapp";
+import { WhatsAppButton } from "@/components/whatsapp/WhatsAppButton";
 
 /** Editorial product card. Prices are intentionally never shown. */
 export function ProductCard({ product, priority = false }: { product: ProductWithRelations; priority?: boolean }) {
   const [primary, secondary] = product.images;
   const href = `/products/${product.slug}`;
+  const enquiry = productEnquiryMessage(
+    { name: product.name, slug: product.slug, sku: product.sku, category: product.category?.name, colours: product.colours },
+    env.siteUrl,
+  );
   const label = product.is_new_arrival ? "New Arrival" : product.is_featured ? "Featured" : null;
 
   return (
@@ -45,10 +52,16 @@ export function ProductCard({ product, priority = false }: { product: ProductWit
         {product.short_description && (
           <p className="mt-1.5 hidden text-sm leading-relaxed text-charcoal/65 sm:block">{truncate(product.short_description, 110)}</p>
         )}
-        <div className="mt-auto pt-3">
+        <div className="mt-auto flex flex-wrap items-center gap-x-5 gap-y-2 pt-3">
           <Link href={href} className="link-underline text-charcoal/90 hover:text-burgundy" aria-label={`View details of ${product.name}`}>
             View Details
           </Link>
+          <WhatsAppButton
+            variant="inline"
+            message={enquiry}
+            label="Enquire"
+            ariaLabel={`Enquire about ${product.name} on WhatsApp`}
+          />
         </div>
       </div>
     </article>

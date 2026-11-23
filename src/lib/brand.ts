@@ -4,6 +4,12 @@ export const brand = {
   label: "THE LABEL",
   fullName: "Poojavi The Label",
   tagline: "Wear a Story",
+  /**
+   * Business WhatsApp number. Used whenever no number has been saved in
+   * Admin → Settings (or the NEXT_PUBLIC_FALLBACK_WHATSAPP_NUMBER env var),
+   * so WhatsApp buttons are never silently hidden.
+   */
+  whatsappNumber: "+917204687075",
 } as const;
 
 export const mainNav = [

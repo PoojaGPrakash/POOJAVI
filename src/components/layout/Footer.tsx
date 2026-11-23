@@ -1,6 +1,5 @@
 import { InstagramIcon } from "@/components/ui/InstagramIcon";
 import Link from "next/link";
-import { Mail } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
 import { WhatsAppIcon } from "@/components/whatsapp/WhatsAppIcon";
 import { brand, mainNav, policyPages } from "@/lib/brand";
@@ -55,16 +54,9 @@ export function Footer({ settings }: { settings: SiteSettings }) {
                   </a>
                 </li>
               )}
-              {settings.contact_email && (
-                <li>
-                  <a href={`mailto:${settings.contact_email}`} className="inline-flex items-center gap-2.5 break-all transition-colors hover:text-champagne">
-                    <Mail className="h-4 w-4 shrink-0" strokeWidth={1.25} /> {settings.contact_email}
-                  </a>
-                </li>
-              )}
               <li>
                 <Link href="/contact" className="transition-colors hover:text-champagne">
-                  Contact form
+                  Contact us
                 </Link>
               </li>
             </ul>

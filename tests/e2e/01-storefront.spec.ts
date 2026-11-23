@@ -17,8 +17,8 @@ test.describe("Storefront (fresh catalogue)", () => {
     await expect(page.getByRole("link", { name: /Raw Silk/ }).first()).toBeVisible();
     // No prices anywhere on the storefront.
     await expect(page.locator("body")).not.toContainText(/₹|\bINR\b|\bPrice\b/i);
-    // WhatsApp controls are hidden until a number is configured (no dead buttons).
-    await expect(page.getByTestId("whatsapp-link")).toHaveCount(0);
+    // WhatsApp falls back to the built-in business number until one is saved in settings.
+    await expect(page.getByTestId("whatsapp-link").first()).toHaveAttribute("href", /^https:\/\/wa\.me\/917204687075/);
     await expectNoHorizontalScroll(page);
     expect(errors()).toEqual([]);
   });
@@ -70,24 +70,18 @@ test.describe("Storefront (fresh catalogue)", () => {
     expect((await request.get("/icon.svg")).status()).toBe(200);
   });
 
-  test("contact form validates and stores an enquiry", async ({ page }) => {
+  test("contact page sends enquiries over WhatsApp without asking for email", async ({ page, context }) => {
     const errors = trackErrors(page);
     await page.goto("/contact");
-    await page.getByRole("button", { name: "Send message" }).click();
-    await expect(page.getByText("Please enter your name.")).toBeVisible();
-    await expect(page.getByText("Please enter your email.")).toBeVisible();
-    await expect(page.getByText("Please write at least 10 characters.")).toBeVisible();
-
-    await page.getByLabel("Name *").fill("Ananya Rao");
-    await page.getByLabel("Email *").fill("not-an-email");
-    await page.getByLabel("Message *").fill("Hello, I would love to see more of your Banarasi silks.");
-    await page.getByRole("button", { name: "Send message" }).click();
-    await expect(page.getByText("Please enter a valid email address.")).toBeVisible();
-
-    await page.getByLabel("Email *").fill("ananya@example.com");
-    await page.getByLabel("Phone / WhatsApp").fill("+91 98450 12345");
-    await page.getByRole("button", { name: "Send message" }).click();
-    await expect(page.getByRole("heading", { name: "Message sent" })).toBeVisible();
+    await expect(page.getByLabel(/email/i)).toHaveCount(0);
+    await page.getByLabel("Your name").fill("Ananya Rao");
+    await page.getByLabel("What are you looking for?").fill("A pure silk saree in deep red.");
+    const [popup] = await Promise.all([context.waitForEvent("page"), page.getByRole("button", { name: "Send on WhatsApp" }).click()]);
+    const url = decodeURIComponent(popup.url());
+    expect(url).toContain("917204687075");
+    expect(url).toContain("A pure silk saree in deep red.");
+    expect(url).toContain("Ananya Rao");
+    await popup.close();
     expect(errors()).toEqual([]);
   });
 

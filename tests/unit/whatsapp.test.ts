@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildWhatsAppLink, normaliseWhatsAppNumber, productEnquiryMessage } from "@/lib/whatsapp";
+import { buildWhatsAppLink, normaliseWhatsAppNumber, productCode, productEnquiryMessage } from "@/lib/whatsapp";
 
 describe("WhatsApp helpers", () => {
   it("normalises formatted numbers to digits", () => {
@@ -21,8 +21,28 @@ describe("WhatsApp helpers", () => {
     expect(buildWhatsAppLink(undefined, "Hi")).toBeNull();
   });
 
-  it("uses the exact product enquiry wording", () => {
-    expect(productEnquiryMessage("Ivory Banarasi")).toBe("Hello Poojavi The Label, I am interested in Ivory Banarasi. Please share more details.");
-    expect(productEnquiryMessage("  Ivory Banarasi ", "PJ-1")).toBe("Hello Poojavi The Label, I am interested in Ivory Banarasi. (Ref: PJ-1) Please share more details.");
+  it("includes the product name, code and link in enquiries", () => {
+    const msg = productEnquiryMessage(
+      { name: "  Ivory Banarasi ", slug: "ivory-banarasi", sku: "PJ-1", category: "Banarasi", colours: ["Ivory", "Gold"] },
+      "https://example.com/",
+    );
+    expect(msg).toBe(
+      [
+        "Hello Poojavi The Label, I am interested in this product:",
+        "",
+        "Product: Ivory Banarasi",
+        "Product Code: PJ-1",
+        "Category: Banarasi",
+        "Colours: Ivory, Gold",
+        "Link: https://example.com/products/ivory-banarasi",
+        "",
+        "Please share the price, availability and more details.",
+      ].join("\n"),
+    );
+  });
+
+  it("falls back to the slug as product code when no SKU is set", () => {
+    expect(productCode({ sku: null, slug: "ivory-banarasi" })).toBe("IVORY-BANARASI");
+    expect(productEnquiryMessage({ name: "Ivory Banarasi", slug: "ivory-banarasi" })).toContain("Product Code: IVORY-BANARASI");
   });
 });

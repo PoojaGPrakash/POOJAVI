@@ -11,8 +11,10 @@ type Props = {
   message?: string;
   className?: string;
   children?: ReactNode;
-  variant?: "primary" | "outline" | "light" | "icon";
+  variant?: "primary" | "outline" | "light" | "icon" | "inline";
   label?: string;
+  /** Accessible name when the visible label is too short to be descriptive. */
+  ariaLabel?: string;
 };
 
 /**
@@ -20,7 +22,7 @@ type Props = {
  * settings (single source of truth). If no number is configured the button
  * is not rendered, so visitors never see a dead control.
  */
-export function WhatsAppButton({ message, className, children, variant = "primary", label = "Enquire on WhatsApp" }: Props) {
+export function WhatsAppButton({ message, className, children, variant = "primary", label = "Enquire on WhatsApp", ariaLabel }: Props) {
   const { whatsappNumber, whatsappDefaultMessage } = useSiteConfig();
   const href = buildWhatsAppLink(whatsappNumber, message ?? whatsappDefaultMessage ?? undefined);
   if (!href) return null;
@@ -30,6 +32,7 @@ export function WhatsAppButton({ message, className, children, variant = "primar
     outline: "btn-outline",
     light: "btn-light",
     icon: "inline-flex h-11 w-11 items-center justify-center text-charcoal transition-colors hover:text-burgundy",
+    inline: "link-underline !inline-flex items-center gap-1.5 text-burgundy hover:text-burgundy-dark",
   } as const;
 
   return (
@@ -38,10 +41,10 @@ export function WhatsAppButton({ message, className, children, variant = "primar
       target="_blank"
       rel="noopener noreferrer"
       className={cn(styles[variant], className)}
-      aria-label={variant === "icon" ? label : undefined}
+      aria-label={ariaLabel ?? (variant === "icon" ? label : undefined)}
       data-testid="whatsapp-link"
     >
-      <WhatsAppIcon className={variant === "icon" ? "h-[22px] w-[22px]" : "h-4 w-4"} />
+      <WhatsAppIcon className={variant === "icon" ? "h-[22px] w-[22px]" : variant === "inline" ? "h-3.5 w-3.5" : "h-4 w-4"} />
       {variant !== "icon" && (children ?? label)}
     </a>
   );
